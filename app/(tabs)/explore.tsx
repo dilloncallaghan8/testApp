@@ -2,9 +2,9 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { FlatList, Image, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 
 type Task = {
   id: string;
@@ -303,49 +303,105 @@ export default function ChecklistScreen() {
   const [currentMonth, setCurrentMonth] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [completedCount, setCompletedCount] = useState(0);
+  const colorScheme = useColorScheme();
 
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const userDataString = await AsyncStorage.getItem('userData');
-        if (userDataString) {
-          const userData = JSON.parse(userDataString);
+  // Load user data and check for grade changes
+  const loadUserData = useCallback(async () => {
+    try {
+      const userDataString = await AsyncStorage.getItem('userData');
+      if (userDataString) {
+        const userData = JSON.parse(userDataString);
+        // Only update if the grade has changed
+        if (userData.grade !== currentGrade) {
           setCurrentGrade(userData.grade);
-          setUserName(userData.name);
-        } else {
-          router.replace('/signup');
         }
-      } catch (error) {
-        console.error('Error loading user data:', error);
+        setUserName(userData.name);
+      } else {
         router.replace('/signup');
       }
-    };
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      router.replace('/signup');
+    }
+  }, [currentGrade]);
 
-    loadUserData();
-  }, []);
+  // Check for user data changes when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [loadUserData])
+  );
 
+  // Set current month
   useEffect(() => {
-    // Get current month
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const currentDate = new Date();
     const monthName = months[currentDate.getMonth()];
     setCurrentMonth(monthName);
+  }, []);
 
-    // Set initial tasks for current grade and month
-    setTasks(checklists[currentGrade][monthName] || []);
-  }, [currentGrade]);
-
+  // Load saved tasks when grade or month changes
   useEffect(() => {
-    // Update completed count whenever tasks change
+    const loadSavedTasks = async () => {
+      try {
+        const savedTasksKey = `tasks_${currentGrade}_${currentMonth}`;
+        const savedTasksString = await AsyncStorage.getItem(savedTasksKey);
+        
+        if (savedTasksString) {
+          // If we have saved tasks, use them
+          const savedTasks = JSON.parse(savedTasksString);
+          setTasks(savedTasks);
+        } else {
+          // Otherwise, use the default tasks from checklists
+          const defaultTasks = checklists[currentGrade][currentMonth] || [];
+          setTasks(defaultTasks);
+          // Save the default tasks
+          await AsyncStorage.setItem(savedTasksKey, JSON.stringify(defaultTasks));
+        }
+      } catch (error) {
+        console.error('Error loading saved tasks:', error);
+        // Fallback to default tasks if there's an error
+        setTasks(checklists[currentGrade][currentMonth] || []);
+      }
+    };
+
+    if (currentGrade && currentMonth) {
+      loadSavedTasks();
+    }
+  }, [currentGrade, currentMonth]);
+
+  // Update completed count whenever tasks change
+  useEffect(() => {
     setCompletedCount(tasks.filter(task => task.done).length);
   }, [tasks]);
 
-  const toggleTask = (id: string) => {
-    setTasks(prev =>
-      prev.map(task =>
-        task.id === id ? { ...task, done: !task.done } : task
-      )
+  const toggleTask = async (id: string) => {
+    const updatedTasks = tasks.map(task =>
+      task.id === id ? { ...task, done: !task.done } : task
     );
+    
+    setTasks(updatedTasks);
+
+    // Save the updated tasks
+    try {
+      const savedTasksKey = `tasks_${currentGrade}_${currentMonth}`;
+      await AsyncStorage.setItem(savedTasksKey, JSON.stringify(updatedTasks));
+    } catch (error) {
+      console.error('Error saving tasks:', error);
+    }
+  };
+
+  const getTaskContainerStyle = (isDone: boolean) => {
+    return [
+      styles.taskContainer,
+      colorScheme === 'dark' ? styles.taskContainerDark : styles.taskContainerLight,
+      isDone && (colorScheme === 'dark' ? styles.taskDoneDark : styles.taskDoneLight),
+    ];
+  };
+
+  const getCheckboxColor = (isDone: boolean) => {
+    if (isDone) return '#4caf50';
+    return colorScheme === 'dark' ? '#666' : '#aaa';
   };
 
   return (
@@ -373,7 +429,10 @@ export default function ChecklistScreen() {
           <ThemedText style={styles.progressText}>
             {completedCount} of {tasks.length} tasks completed
           </ThemedText>
-          <View style={styles.progressBar}>
+          <View style={[
+            styles.progressBar,
+            colorScheme === 'dark' ? styles.progressBarDark : styles.progressBarLight
+          ]}>
             <View 
               style={[
                 styles.progressFill,
@@ -391,20 +450,20 @@ export default function ChecklistScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => toggleTask(item.id)}
-            style={[
-              styles.taskContainer,
-              item.done && styles.taskDone,
-            ]}
+            style={getTaskContainerStyle(item.done)}
           >
             <View style={styles.checkboxContainer}>
               <Ionicons
                 name={item.done ? 'checkbox' : 'square-outline'}
                 size={24}
-                color={item.done ? '#4caf50' : '#aaa'}
+                color={getCheckboxColor(item.done)}
               />
             </View>
             <ThemedText
-              style={[styles.taskText, item.done && styles.textDone]}
+              style={[
+                styles.taskText,
+                item.done && (colorScheme === 'dark' ? styles.textDoneDark : styles.textDoneLight)
+              ]}
               numberOfLines={0}
             >
               {item.text}
@@ -444,7 +503,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 18,
     textAlign: 'center',
-    color: '#666',
+    opacity: 0.7,
     marginBottom: 16,
   },
   progressContainer: {
@@ -452,14 +511,19 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    color: '#666',
+    opacity: 0.7,
     marginBottom: 8,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#f0f0f0',
     borderRadius: 4,
     overflow: 'hidden',
+  },
+  progressBarLight: {
+    backgroundColor: '#f0f0f0',
+  },
+  progressBarDark: {
+    backgroundColor: '#333',
   },
   progressFill: {
     height: '100%',
@@ -476,9 +540,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginBottom: 8,
-    backgroundColor: '#fff',
     borderRadius: 12,
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -486,6 +548,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  taskContainerLight: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+  },
+  taskContainerDark: {
+    backgroundColor: '#1c1c1e',
+    shadowColor: '#000',
   },
   checkboxContainer: {
     marginRight: 12,
@@ -496,11 +566,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
   },
-  taskDone: {
+  taskDoneLight: {
     backgroundColor: '#f8f9fa',
   },
-  textDone: {
+  taskDoneDark: {
+    backgroundColor: '#2c2c2e',
+  },
+  textDoneLight: {
     textDecorationLine: 'line-through',
-    color: '#999',
+    opacity: 0.5,
+  },
+  textDoneDark: {
+    textDecorationLine: 'line-through',
+    opacity: 0.5,
   },
 });

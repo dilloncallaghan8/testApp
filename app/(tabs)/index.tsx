@@ -1,27 +1,45 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { Linking, Pressable, StyleSheet } from 'react-native';
+import { Linking, Pressable, StyleSheet, useColorScheme } from 'react-native';
 
 import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 
-const ResourceCard = ({ title, description, icon, url }: { title: string; description: string; icon: string; url: string }) => (
-  <Pressable
-    style={styles.card}
-    onPress={() => Linking.openURL(url)}
-  >
-    <Ionicons name={icon as any} size={32} color="#0a7ea4" style={styles.cardIcon} />
-    <ThemedView style={styles.cardContent}>
-      <ThemedText type="subtitle" style={styles.cardTitle}>{title}</ThemedText>
-      <ThemedText style={styles.cardDescription}>{description}</ThemedText>
-    </ThemedView>
-    <Ionicons name="chevron-forward" size={24} color="#0a7ea4" />
-  </Pressable>
-);
+const ResourceCard = ({ title, description, icon, url }: { title: string; description: string; icon: string; url: string }) => {
+  const colorScheme = useColorScheme();
+  
+  return (
+    <Pressable
+      style={[
+        styles.card,
+        colorScheme === 'dark' ? styles.cardDark : styles.cardLight
+      ]}
+      onPress={() => Linking.openURL(url)}
+    >
+      <Ionicons 
+        name={icon as any} 
+        size={32} 
+        color={colorScheme === 'dark' ? '#0a7ea4' : '#0a7ea4'} 
+        style={styles.cardIcon} 
+      />
+      <ThemedView style={styles.cardContent}>
+        <ThemedText type="subtitle" style={styles.cardTitle}>{title}</ThemedText>
+        <ThemedText style={styles.cardDescription}>{description}</ThemedText>
+      </ThemedView>
+      <Ionicons 
+        name="chevron-forward" 
+        size={24} 
+        color={colorScheme === 'dark' ? '#0a7ea4' : '#0a7ea4'} 
+      />
+    </Pressable>
+  );
+};
 
 export default function HomeScreen() {
+  const colorScheme = useColorScheme();
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -79,13 +97,19 @@ export default function HomeScreen() {
         />
       </ThemedView>
 
-      <ThemedView style={styles.contactSection}>
+      <ThemedView style={[
+        styles.contactSection,
+        colorScheme === 'dark' ? styles.contactSectionDark : styles.contactSectionLight
+      ]}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Need Help?</ThemedText>
         <ThemedText style={styles.contactText}>
           Schedule a FREE planning session with an ICAN Advisor at ICANsucceed.org/apt
         </ThemedText>
         <Pressable
-          style={styles.contactButton}
+          style={[
+            styles.contactButton,
+            colorScheme === 'dark' ? styles.contactButtonDark : styles.contactButtonLight
+          ]}
           onPress={() => Linking.openURL('https://www.icansucceed.org/apt')}
         >
           <ThemedText style={styles.contactButtonText}>Schedule Appointment</ThemedText>
@@ -119,10 +143,12 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+  },
+  cardLight: {
+    backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -131,6 +157,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  cardDark: {
+    backgroundColor: '#1c1c1e',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   cardIcon: {
     marginRight: 16,
@@ -145,14 +182,19 @@ const styles = StyleSheet.create({
   },
   cardDescription: {
     fontSize: 14,
-    color: '#666',
+    opacity: 0.8,
   },
   contactSection: {
-    backgroundColor: '#f8f9fa',
     borderRadius: 12,
     padding: 20,
     marginTop: 8,
     marginBottom: 24,
+  },
+  contactSectionLight: {
+    backgroundColor: '#f8f9fa',
+  },
+  contactSectionDark: {
+    backgroundColor: '#1c1c1e',
   },
   contactText: {
     fontSize: 16,
@@ -160,10 +202,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   contactButton: {
-    backgroundColor: '#0a7ea4',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  contactButtonLight: {
+    backgroundColor: '#0a7ea4',
+  },
+  contactButtonDark: {
+    backgroundColor: '#0a7ea4',
   },
   contactButtonText: {
     color: '#fff',

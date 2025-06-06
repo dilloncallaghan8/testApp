@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, useColorScheme } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -16,13 +16,14 @@ type UserData = {
 };
 
 export default function ProfileScreen() {
-  const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState<UserData>({
     name: '',
     email: '',
     password: '',
     grade: '9th',
   });
+  const [isEditing, setIsEditing] = useState(false);
+  const colorScheme = useColorScheme();
 
   useEffect(() => {
     loadUserData();
@@ -32,20 +33,18 @@ export default function ProfileScreen() {
     try {
       const userDataString = await AsyncStorage.getItem('userData');
       if (userDataString) {
-        setUserData(JSON.parse(userDataString));
+        const data = JSON.parse(userDataString);
+        setUserData(data);
+      } else {
+        router.replace('/signup');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      Alert.alert('Error', 'Failed to load user data');
+      router.replace('/signup');
     }
   };
 
   const handleSave = async () => {
-    if (!userData.name || !userData.email || !userData.password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
     try {
       await AsyncStorage.setItem('userData', JSON.stringify(userData));
       setIsEditing(false);
@@ -64,6 +63,28 @@ export default function ProfileScreen() {
     }
   };
 
+  const getInputStyle = () => {
+    return [
+      styles.input,
+      colorScheme === 'dark' ? styles.inputDark : styles.inputLight,
+    ];
+  };
+
+  const getGradeButtonStyle = (isSelected: boolean) => {
+    return [
+      styles.gradeButton,
+      colorScheme === 'dark' ? styles.gradeButtonDark : styles.gradeButtonLight,
+      isSelected && (colorScheme === 'dark' ? styles.selectedGradeDark : styles.selectedGradeLight),
+    ];
+  };
+
+  const getGradeButtonTextStyle = (isSelected: boolean) => {
+    return [
+      styles.gradeButtonText,
+      isSelected && styles.selectedGradeText,
+    ];
+  };
+
   return (
     <ThemedView style={styles.container}>
       <Image
@@ -80,32 +101,32 @@ export default function ProfileScreen() {
         <ThemedView style={styles.formContainer}>
           <ThemedText style={styles.label}>Name:</ThemedText>
           <TextInput
-            style={styles.input}
+            style={getInputStyle()}
             value={userData.name}
             onChangeText={(text) => setUserData({ ...userData, name: text })}
             editable={isEditing}
-            placeholderTextColor="#666"
+            placeholderTextColor={colorScheme === 'dark' ? '#999' : '#666'}
           />
 
           <ThemedText style={styles.label}>Email:</ThemedText>
           <TextInput
-            style={styles.input}
+            style={getInputStyle()}
             value={userData.email}
             onChangeText={(text) => setUserData({ ...userData, email: text })}
             editable={isEditing}
             keyboardType="email-address"
             autoCapitalize="none"
-            placeholderTextColor="#666"
+            placeholderTextColor={colorScheme === 'dark' ? '#999' : '#666'}
           />
 
           <ThemedText style={styles.label}>Password:</ThemedText>
           <TextInput
-            style={styles.input}
+            style={getInputStyle()}
             value={userData.password}
             onChangeText={(text) => setUserData({ ...userData, password: text })}
             editable={isEditing}
             secureTextEntry
-            placeholderTextColor="#666"
+            placeholderTextColor={colorScheme === 'dark' ? '#999' : '#666'}
           />
 
           <ThemedText style={styles.label}>Grade:</ThemedText>
@@ -113,17 +134,11 @@ export default function ProfileScreen() {
             {(['9th', '10th', '11th', '12th'] as GradeLevel[]).map((grade) => (
               <Pressable
                 key={grade}
-                style={[
-                  styles.gradeButton,
-                  userData.grade === grade && styles.selectedGrade,
-                ]}
+                style={getGradeButtonStyle(userData.grade === grade)}
                 onPress={() => isEditing && setUserData({ ...userData, grade })}
               >
                 <ThemedText
-                  style={[
-                    styles.gradeButtonText,
-                    userData.grade === grade && styles.selectedGradeText,
-                  ]}
+                  style={getGradeButtonTextStyle(userData.grade === grade)}
                 >
                   {grade}
                 </ThemedText>
@@ -141,7 +156,7 @@ export default function ProfileScreen() {
                   style={styles.cancelButton}
                   onPress={() => {
                     setIsEditing(false);
-                    loadUserData(); // Reload original data
+                    loadUserData();
                   }}
                 >
                   <ThemedText style={styles.buttonText}>Cancel</ThemedText>
@@ -154,7 +169,13 @@ export default function ProfileScreen() {
             )}
           </ThemedView>
 
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <Pressable 
+            style={[
+              styles.logoutButton,
+              colorScheme === 'dark' ? styles.logoutButtonDark : styles.logoutButtonLight
+            ]} 
+            onPress={handleLogout}
+          >
             <ThemedText style={styles.logoutButtonText}>Logout</ThemedText>
           </Pressable>
         </ThemedView>
@@ -191,10 +212,16 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   input: {
-    backgroundColor: '#f0f0f0',
     padding: 15,
     borderRadius: 10,
     fontSize: 16,
+  },
+  inputLight: {
+    backgroundColor: '#f0f0f0',
+  },
+  inputDark: {
+    backgroundColor: '#2c2c2e',
+    color: '#fff',
   },
   gradeSelector: {
     flexDirection: 'row',
@@ -205,9 +232,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
     borderRadius: 20,
+  },
+  gradeButtonLight: {
     backgroundColor: '#f0f0f0',
   },
-  selectedGrade: {
+  gradeButtonDark: {
+    backgroundColor: '#2c2c2e',
+  },
+  selectedGradeLight: {
+    backgroundColor: '#0a7ea4',
+  },
+  selectedGradeDark: {
     backgroundColor: '#0a7ea4',
   },
   gradeButtonText: {
@@ -245,11 +280,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    backgroundColor: '#f0f0f0',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 20,
+  },
+  logoutButtonLight: {
+    backgroundColor: '#f0f0f0',
+  },
+  logoutButtonDark: {
+    backgroundColor: '#2c2c2e',
   },
   logoutButtonText: {
     color: '#f44336',
